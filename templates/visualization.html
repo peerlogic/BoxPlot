@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+  <p align="center" id="title">  </p>
+<meta charset="utf-8">
+<style>
+
+div{
+    overflow-x: scroll;
+    width: auto;
+    white-space: nowrap;
+}
+
+body {
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.box {
+  font: 10px sans-serif;
+}
+
+.box line,
+.box rect,
+.box circle {
+  fill: #fff;
+  stroke: #000;
+  stroke-width: 1.5px;
+}
+
+.box .center {
+  stroke-dasharray: 3,3;
+}
+
+.box .outlier {
+  fill: none;
+  stroke: #ccc;
+}
+
+</style>
+<body>
+  <div id="chart"></div>
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="../static/box.js"></script>
+
+<script>
+  var label = 0;
+  var margin = {top: 10, right: 25, bottom: 20, left: 25},
+      width = 70 - margin.left - margin.right,
+      height = 300 - margin.top - margin.bottom;
+
+  var chart = d3.box()
+      .whiskers(iqr(1.5))
+      .width(width)
+      .height(height);
+
+  jsonData = JSON.parse({{ json_data|tojson|safe }});
+  document.getElementById('title').innerHTML = jsonData['title'];
+  var data = [], raw_data = jsonData['raw_data'];
+  var mini = jsonData['max_score'];
+  let num = 0;
+  for(var i = 0; i < raw_data.length; i++){
+    if(raw_data[i]['scores'].filter(a => a != null).length > 0){
+      d = raw_data[i]['scores'].filter(a => a != null);
+      for(var m = 0; m < d.length; m++){
+        mini = Math.min(mini, d[m]);
+      }
+    	data[num] = {
+    		"data": d,
+    		"label": raw_data[i]['label'],
+        "id": num
+    	};
+      if(data[num].label === "Your Team") label = num;
+      num += 1;
+    }
+  }
+  var text_pos = {};
+  
+  chart.domain([mini, jsonData['max_score']]);
+  var svg = d3.select("#chart").selectAll("svg")
+    .data(data)
+  .enter().append("svg")
+    .attr("class", "box")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.bottom + margin.top)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")")
+    .call(chart);
+  svg.append("text")
+  	.attr("x", width/2)
+  	.attr("y", function(d){return text_pos[d['id']] + margin.bottom-5;})
+  	.style("text-anchor", "middle")
+    .style("font-size", "14px")
+    .style("font-weight", "bold")
+  	.text(function(d) { return d['label'].substring(0,Math.min(10, d['label'].length)); });
+  // Returns a function to compute the interquartile range.
+  function iqr(k) {
+    return function(d, i) {
+      text_pos[i] = d.smallest;
+      var q1 = d.quartiles[0],
+          q3 = d.quartiles[2],
+          iqr = (q3 - q1) * k,
+          i = -1,
+          j = d.length;
+      while (d[++i] < q1 - iqr);
+      while (d[--j] > q3 + iqr);
+      return [i, j];
+    };
+  }
+</script>
+</body>
+</html>
